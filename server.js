@@ -3,7 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const uuid = require('./helpers/uuid');
 const app = express();
-const notes = require('./db/db.json');
+let notes = require('./db/db.json');
+const {
+    readFromFile,
+    readAndAppend,
+    writeToFile,
+  } = require('./helpers/fsUtils');
+
+
 const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -13,11 +20,12 @@ app.use(express.static('public'));
 app.get('/notes', (req, res) =>
     res.sendFile(path.join(__dirname, '/public/notes.html'))
 );
-app.get('/api/notes', (req, res) => {
-    return res.status(200).json(notes);
+
+app.get('/api/notes', async (req, res) => {
+    readFromFile('./db/db.json').then((data) => res.json(JSON.parse(data)));
 });
 
-app.post('/api/notes', (req, res) => {
+app.post('/api/notes', async (req, res) => {
     // Log that a POST request was received
     console.info(`${req.method} request received to add a note`);
     // Destructuring assignment for the items in req.body
@@ -30,10 +38,8 @@ app.post('/api/notes', (req, res) => {
             title,
             text,
             id: uuid(),
-
         };
-
-        fs.readFile('./db/db.json', 'utf8', (err, data) => {
+        await fs.readFile('./db/db.json', 'utf8', (err, data) => {
             if (err) {
                 console.error(err);
             } else {
@@ -53,14 +59,12 @@ app.post('/api/notes', (req, res) => {
                             : console.info('Successfully updated notes!')
                 );
             }
-
+            const response = {
+                status: 'success',
+                body: newNote,
+            };
+            res.json(response)
         });
-        const response = {
-            status: 'success',
-            body: newNote,
-        };
-        res.status(201).json(response);
-        
     } else {
         res.status(500).json('Error in posting notes');
     }
